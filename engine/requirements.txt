@@ -1,0 +1,7 @@
+yt-dlp
+faster-whisper
+scenedetect[opencv]
+mediapipe
+opencv-python
+ffmpeg-python
+numpy

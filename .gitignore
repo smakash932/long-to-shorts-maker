@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Build outputs
+dist/
+build/
+
+# Storage / generated files
+storage/videos/
+storage/clips/
+storage/uploads/
+storage/thumbnails/
+storage/temp/
+*.mp4
+*.mkv
+*.webm
+*.wav
+*.mp3
+*.json.tmp
+
+# Environment / secrets
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
