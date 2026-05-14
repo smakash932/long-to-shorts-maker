@@ -13,6 +13,7 @@ import json
 import subprocess
 import tempfile
 from utils import emit_progress
+from gpu_utils import video_encoder_args
 
 
 def detect_silences(clip_path: str, 
@@ -161,13 +162,13 @@ def remove_silences(clip_path: str, output_path: str = None,
         f"[0:a]aselect='{select_expr}',asetpts=N/SR/TB[a]"
     )
     
+    encoder_args = video_encoder_args(quality="balanced")
     cmd = [
         'ffmpeg', '-y',
         '-i', clip_path,
         '-filter_complex', filter_complex,
         '-map', '[v]', '-map', '[a]',
-        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23',
-        '-pix_fmt', 'yuv420p',
+        *encoder_args,
         '-c:a', 'aac', '-b:a', '128k',
         '-movflags', '+faststart',
         output_path

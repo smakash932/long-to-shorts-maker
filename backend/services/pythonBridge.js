@@ -6,11 +6,30 @@
 
 const { spawn } = require('child_process');
 const path = require('path');
+const fs = require('fs');
 const EventEmitter = require('events');
 
 const ENGINE_DIR = path.join(__dirname, '..', '..', 'engine');
-const VENV_PYTHON = path.join(__dirname, '..', '..', 'venv', 'Scripts', 'python.exe');
-const PYTHON_CMD = require('fs').existsSync(VENV_PYTHON) ? VENV_PYTHON : 'python';
+
+// Cross-platform venv Python resolution.
+// Windows venv puts Python at venv/Scripts/python.exe.
+// macOS/Linux venv puts it at venv/bin/python.
+function resolvePythonCommand() {
+    if (process.env.LTS_PYTHON) return process.env.LTS_PYTHON;
+
+    const candidates = [
+        path.join(__dirname, '..', '..', 'venv', 'Scripts', 'python.exe'),
+        path.join(__dirname, '..', '..', 'venv', 'bin', 'python'),
+        path.join(__dirname, '..', '..', '.venv', 'Scripts', 'python.exe'),
+        path.join(__dirname, '..', '..', '.venv', 'bin', 'python'),
+    ];
+    for (const c of candidates) {
+        if (fs.existsSync(c)) return c;
+    }
+    return process.platform === 'win32' ? 'python' : 'python3';
+}
+
+const PYTHON_CMD = resolvePythonCommand();
 
 class PythonBridge extends EventEmitter {
     constructor(io) {
@@ -147,7 +166,38 @@ class PythonBridge extends EventEmitter {
         args.push('--hook-position', options.hookPosition || 'upper');
         args.push('--sub-position', options.subPosition || 'bottom');
 
+        // Anti-copyright filter strength: off | light | medium | strong
+        if (options.anticopy) args.push('--anticopy', options.anticopy);
+
+        // Encoding quality (passed through to NVENC/x264 args): fast | balanced | best
+        if (options.quality) args.push('--quality', options.quality);
+
+        // Skip subtitles entirely if user explicitly disabled them
+        if (options.subtitles === false) args.push('--subtitles', 'false');
+
         return this.runCommand('pipeline', args, options.videoId || 'pipeline');
+    }
+
+    /**
+     * Get hardware / GPU info from the engine (cached after first call).
+     */
+    async getSystemInfo() {
+        return new Promise((resolve, reject) => {
+            const proc = spawn(PYTHON_CMD, [path.join(ENGINE_DIR, 'gpu_utils.py')], {
+                cwd: ENGINE_DIR,
+                env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+            });
+            let stdout = '';
+            let stderr = '';
+            proc.stdout.on('data', (d) => { stdout += d.toString('utf-8'); });
+            proc.stderr.on('data', (d) => { stderr += d.toString('utf-8'); });
+            proc.on('close', (code) => {
+                if (code !== 0) return reject(new Error(stderr || `gpu_utils exited ${code}`));
+                try { resolve(JSON.parse(stdout)); }
+                catch (e) { reject(e); }
+            });
+            proc.on('error', reject);
+        });
     }
 
     /**
@@ -173,16 +223,20 @@ class PythonBridge extends EventEmitter {
         const proc = this.activeProcesses.get(jobId);
         if (proc) {
             console.log(`[PythonBridge] Killing job ${jobId} (PID: ${proc.pid})`);
-            
-            // On Windows, SIGTERM doesn't work. Use taskkill to kill process tree.
-            try {
-                const { execSync } = require('child_process');
-                execSync(`taskkill /PID ${proc.pid} /T /F`, { stdio: 'ignore' });
-            } catch (e) {
-                // Fallback: try regular kill
-                try { proc.kill('SIGKILL'); } catch (e2) {}
+
+            if (process.platform === 'win32') {
+                // Windows: SIGTERM doesn't work. Use taskkill to kill process tree.
+                try {
+                    const { execSync } = require('child_process');
+                    execSync(`taskkill /PID ${proc.pid} /T /F`, { stdio: 'ignore' });
+                } catch (e) {
+                    try { proc.kill('SIGKILL'); } catch (e2) {}
+                }
+            } else {
+                // macOS / Linux: SIGKILL works fine.
+                try { proc.kill('SIGKILL'); } catch (e) {}
             }
-            
+
             this.activeProcesses.delete(jobId);
             return true;
         }

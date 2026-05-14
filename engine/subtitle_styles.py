@@ -1,142 +1,281 @@
 """
-Subtitle style definitions for different templates.
-Generates ASS (Advanced SubStation Alpha) subtitle format
-for rich styling support (colors, fonts, animations).
+Subtitle style definitions and ASS generation.
 
-Includes:
-  - Word-by-word subtitle display
-  - On-screen Hook Text (first 15s, white bg, black text, top of screen)
+Each template produces visually distinct subtitles that look like a real
+short-form template (Mr.Beast bold yellow, Karaoke per-word fill, Bouncy
+red outline, etc.). The same template metadata is exported via
+`get_templates_for_preview()` so the React frontend can render an
+honest CSS preview of how each template will look BEFORE generating
+clips.
+
+ASS color format: &HAABBGGRR (BGR, NOT RGB!). Alpha 00=opaque, FF=transparent.
 """
 
+from __future__ import annotations
 
-# Subtitle template definitions — font sizes optimized for 1080x1920 mobile viewing
+import os
+
+
+# Allow templates to specify a fallback Windows-friendly font. Linux render
+# tests use Arial/DejaVuSans which both ship in the libass test corpus.
+# Outline / shadow values are tuned for 1080x1920 mobile viewing.
+
 TEMPLATES = {
     "default": {
-        "name": "Default",
-        "fontname": "Arial",
-        "fontsize": 52,
-        "primary_color": "&H00FFFFFF",    # White
-        "outline_color": "&H00000000",    # Black
-        "back_color": "&H80000000",       # Semi-transparent black
-        "bold": 1,
-        "outline": 4,
-        "shadow": 2,
-        "alignment": 2,  # Bottom center
-        "margin_v": 120,
-        "highlight_color": "&H0000FFFF",  # Yellow
-    },
-    "modern": {
-        "name": "Modern",
+        "name": "Clean White",
+        "description": "Clean white text with thick black outline. Safe, readable, works everywhere.",
         "fontname": "Arial",
         "fontsize": 56,
-        "primary_color": "&H00FFFFFF",
-        "outline_color": "&H00333333",
-        "back_color": "&HC8000000",
+        "primary_color": "&H00FFFFFF",     # White
+        "secondary_color": "&H00FFFFFF",
+        "outline_color": "&H00000000",     # Black outline
+        "back_color": "&H80000000",        # Semi-transparent black box
+        "border_style": 1,                 # 1=outline+shadow, 3=opaque box
         "bold": 1,
-        "outline": 5,
-        "shadow": 0,
-        "alignment": 2,
+        "italic": 0,
+        "outline": 4,
+        "shadow": 2,
         "margin_v": 140,
-        "highlight_color": "&H0042F5F5",  # Hot pink-ish
-    },
-    "bouncy": {
-        "name": "Bouncy",
-        "fontname": "Impact",
-        "fontsize": 58,
-        "primary_color": "&H00FFFFFF",
-        "outline_color": "&H000000FF",    # Red outline
-        "back_color": "&H00000000",
-        "bold": 1,
-        "outline": 5,
-        "shadow": 3,
-        "alignment": 2,
-        "margin_v": 130,
-        "highlight_color": "&H0000FF00",  # Green
+        "highlight_color": "&H0000FFFF",   # Yellow word highlight
+        "preview": {
+            "color": "#FFFFFF",
+            "stroke": "#000000",
+            "background": "transparent",
+            "highlightColor": "#FFD700",
+            "fontWeight": 700,
+            "fontFamily": "Arial, sans-serif",
+            "fontSize": 26,
+        },
     },
     "mrbeast": {
         "name": "Mr.Beast",
+        "description": "Big bold Impact font, thick black outline, yellow word highlight.",
         "fontname": "Impact",
-        "fontsize": 62,
+        "fontsize": 70,
         "primary_color": "&H00FFFFFF",
+        "secondary_color": "&H00FFFFFF",
         "outline_color": "&H00000000",
         "back_color": "&H00000000",
+        "border_style": 1,
         "bold": 1,
-        "outline": 6,
-        "shadow": 0,
-        "alignment": 2,
-        "margin_v": 150,
-        "highlight_color": "&H0000D7FF",  # Gold
-    },
-    "business": {
-        "name": "Business",
-        "fontname": "Arial",
-        "fontsize": 46,
-        "primary_color": "&H00FFFFFF",
-        "outline_color": "&H00404040",
-        "back_color": "&HB4000000",
-        "bold": 0,
-        "outline": 3,
-        "shadow": 0,
-        "alignment": 2,
-        "margin_v": 100,
-        "highlight_color": "&H00FFA500",  # Orange
+        "italic": 0,
+        "outline": 7,
+        "shadow": 3,
+        "margin_v": 160,
+        "highlight_color": "&H0000D7FF",   # Gold (BGR: FFD700)
+        "preview": {
+            "color": "#FFFFFF",
+            "stroke": "#000000",
+            "background": "transparent",
+            "highlightColor": "#FFD700",
+            "fontWeight": 900,
+            "fontFamily": "Impact, 'Arial Black', sans-serif",
+            "fontSize": 32,
+            "letterSpacing": "0.5px",
+            "textTransform": "uppercase",
+        },
     },
     "karaoke": {
         "name": "Karaoke",
+        "description": "Each word lights up as it's spoken — perfect for music or fast-talking videos.",
         "fontname": "Arial",
-        "fontsize": 54,
-        "primary_color": "&H00FFFFFF",
+        "fontsize": 58,
+        "primary_color": "&H00FFFFFF",     # White (unspoken)
+        "secondary_color": "&H0000FFFF",   # Yellow (animated to)
         "outline_color": "&H00000000",
         "back_color": "&H00000000",
+        "border_style": 1,
         "bold": 1,
+        "italic": 0,
         "outline": 5,
         "shadow": 0,
-        "alignment": 2,
-        "margin_v": 140,
-        "highlight_color": "&H0000D7FF",
+        "margin_v": 150,
+        "highlight_color": "&H0000FFFF",   # Yellow
+        "karaoke": True,                   # Special flag — use \k tag
+        "preview": {
+            "color": "#FFFFFF",
+            "stroke": "#000000",
+            "background": "transparent",
+            "highlightColor": "#FFEE00",
+            "fontWeight": 800,
+            "fontFamily": "Arial, sans-serif",
+            "fontSize": 28,
+        },
+    },
+    "bouncy": {
+        "name": "Bouncy Red",
+        "description": "Impact font, red outline, scale-up animation per word.",
+        "fontname": "Impact",
+        "fontsize": 64,
+        "primary_color": "&H00FFFFFF",
+        "secondary_color": "&H00FFFFFF",
+        "outline_color": "&H000000FF",     # Red (BGR: FF0000)
+        "back_color": "&H00000000",
+        "border_style": 1,
+        "bold": 1,
+        "italic": 0,
+        "outline": 5,
+        "shadow": 2,
+        "margin_v": 150,
+        "highlight_color": "&H0000FF00",   # Green word highlight
+        "bouncy": True,                    # Use bounce animation
+        "preview": {
+            "color": "#FFFFFF",
+            "stroke": "#FF0000",
+            "background": "transparent",
+            "highlightColor": "#00FF00",
+            "fontWeight": 900,
+            "fontFamily": "Impact, 'Arial Black', sans-serif",
+            "fontSize": 30,
+            "textTransform": "uppercase",
+        },
+    },
+    "neon": {
+        "name": "Neon Glow",
+        "description": "Pink/cyan glow effect — gaming, late-night, vibe-y content.",
+        "fontname": "Arial",
+        "fontsize": 58,
+        "primary_color": "&H00FFFFFF",
+        "secondary_color": "&H00FFFFFF",
+        "outline_color": "&H00FF00FF",     # Magenta outline (BGR: FF00FF)
+        "back_color": "&H40000000",
+        "border_style": 1,
+        "bold": 1,
+        "italic": 0,
+        "outline": 4,
+        "shadow": 6,                        # big shadow → glow look
+        "margin_v": 150,
+        "highlight_color": "&H00FFFF00",   # Cyan (BGR: 00FFFF)
+        "preview": {
+            "color": "#FFFFFF",
+            "stroke": "#FF00FF",
+            "background": "transparent",
+            "highlightColor": "#00FFFF",
+            "fontWeight": 800,
+            "fontFamily": "Arial, sans-serif",
+            "fontSize": 28,
+            "textShadow": "0 0 8px #FF00FF, 0 0 14px #00FFFF",
+        },
+    },
+    "business": {
+        "name": "Business",
+        "description": "Calm, professional. Smaller font, soft grey outline.",
+        "fontname": "Arial",
+        "fontsize": 46,
+        "primary_color": "&H00FFFFFF",
+        "secondary_color": "&H00FFFFFF",
+        "outline_color": "&H00404040",
+        "back_color": "&HB4000000",        # Translucent dark box
+        "border_style": 3,                 # opaque box
+        "bold": 0,
+        "italic": 0,
+        "outline": 0,
+        "shadow": 0,
+        "margin_v": 110,
+        "highlight_color": "&H0000A5FF",   # Orange highlight (BGR: FFA500)
+        "preview": {
+            "color": "#FFFFFF",
+            "stroke": "transparent",
+            "background": "rgba(0,0,0,0.7)",
+            "highlightColor": "#FFA500",
+            "fontWeight": 500,
+            "fontFamily": "Arial, sans-serif",
+            "fontSize": 24,
+            "padding": "4px 12px",
+            "borderRadius": "4px",
+        },
     },
 }
 
 
-def generate_ass_header(template_name: str = "default", 
-                         video_width: int = 1080, 
-                         video_height: int = 1920,
-                         hook_position: str = "upper",
-                         sub_position: str = "bottom") -> str:
+def get_template(name: str) -> dict:
+    """Return the template dict; falls back to 'default' on unknown name."""
+    return TEMPLATES.get(name, TEMPLATES["default"])
+
+
+def get_template_names() -> list[dict]:
+    """Get template id+name list (used by the /api/templates endpoint)."""
+    return [
+        {"id": k, "name": v["name"], "description": v["description"]}
+        for k, v in TEMPLATES.items()
+    ]
+
+
+def get_templates_for_preview() -> dict:
+    """
+    Return a dict of {template_id: {name, description, preview}} for
+    frontend live-preview rendering.
+    """
+    return {
+        k: {
+            "name": v["name"],
+            "description": v["description"],
+            "preview": v["preview"],
+        }
+        for k, v in TEMPLATES.items()
+    }
+
+
+# ---------------------------------------------------------------------------
+# ASS generation
+# ---------------------------------------------------------------------------
+
+
+def format_ass_time(seconds: float) -> str:
+    """Format seconds to ASS time format (H:MM:SS.CC)."""
+    seconds = max(0, seconds)
+    h = int(seconds // 3600)
+    m = int((seconds % 3600) // 60)
+    s = seconds % 60
+    cs = int((s % 1) * 100)
+    return f"{h}:{m:02d}:{int(s):02d}.{cs:02d}"
+
+
+def format_srt_time(seconds: float) -> str:
+    """Format seconds to SRT time format."""
+    seconds = max(0, seconds)
+    h = int(seconds // 3600)
+    m = int((seconds % 3600) // 60)
+    s = int(seconds % 60)
+    ms = int((seconds % 1) * 1000)
+    return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
+
+
+def generate_ass_header(
+    template_name: str = "default",
+    video_width: int = 1080,
+    video_height: int = 1920,
+    hook_position: str = "upper",
+    sub_position: str = "bottom",
+) -> str:
     """
     Generate ASS subtitle file header with style definitions.
-    Includes:
-      - Default subtitle style (bottom)
-      - Highlight style (word highlighting)
-      - HookText style (top of screen, white bg, black text)
+    Adds: Default subtitle style, Highlight word style, HookText style.
     """
-    t = TEMPLATES.get(template_name, TEMPLATES["default"])
-    
-    # Hook text sizing: ~45px on 1080w, bold
-    hook_fontsize = max(38, int(video_width * 0.045))
-    
-    # Hook position margins (alignment 8 = top-center)
-    # Position presets: top=8%, upper=20%, center=40%, lower=65%, bottom=80%
+    t = get_template(template_name)
+
+    # Position presets (alignment 2 = bottom-center, 5 = middle-center, 8 = top-center)
     hook_positions = {
-        'top': int(video_height * 0.08),
-        'upper': int(video_height * 0.20),
+        'top':    int(video_height * 0.08),
+        'upper':  int(video_height * 0.20),
         'center': int(video_height * 0.38),
-        'lower': int(video_height * 0.55),
+        'lower':  int(video_height * 0.55),
         'bottom': int(video_height * 0.72),
     }
-    hook_margin = hook_positions.get(hook_position, hook_positions['upper'])
-    
-    # Subtitle position margins
     sub_positions = {
-        'top': int(video_height * 0.05),
-        'upper': int(video_height * 0.15),
+        'top':    int(video_height * 0.05),
+        'upper':  int(video_height * 0.15),
         'center': int(video_height * 0.35),
-        'lower': int(video_height * 0.55),
-        'bottom': 120,
+        'lower':  int(video_height * 0.55),
+        'bottom': 140,
     }
+
+    hook_margin = hook_positions.get(hook_position, hook_positions['upper'])
     sub_margin = sub_positions.get(sub_position, sub_positions['bottom'])
-    sub_align = 8 if sub_position in ('top', 'upper') else (5 if sub_position == 'center' else t['alignment'])
-    
+    sub_align = 8 if sub_position in ('top', 'upper') else (5 if sub_position == 'center' else 2)
+
+    hook_fontsize = max(38, int(video_width * 0.045))
+
     header = f"""[Script Info]
 Title: Long to Shorts Maker Subtitles
 ScriptType: v4.00+
@@ -147,8 +286,8 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,{t['fontname']},{t['fontsize']},{t['primary_color']},{t['highlight_color']},{t['outline_color']},{t['back_color']},{t['bold']},0,0,0,100,100,0,0,1,{t['outline']},{t['shadow']},{sub_align},20,20,{sub_margin},1
-Style: Highlight,{t['fontname']},{t['fontsize']},{t['highlight_color']},{t['primary_color']},{t['outline_color']},{t['back_color']},1,0,0,0,100,100,0,0,1,{t['outline']},{t['shadow']},{sub_align},20,20,{sub_margin},1
+Style: Default,{t['fontname']},{t['fontsize']},{t['primary_color']},{t['secondary_color']},{t['outline_color']},{t['back_color']},{t['bold']},{t['italic']},0,0,100,100,0,0,{t['border_style']},{t['outline']},{t['shadow']},{sub_align},40,40,{sub_margin},1
+Style: Highlight,{t['fontname']},{t['fontsize']},{t['highlight_color']},{t['secondary_color']},{t['outline_color']},{t['back_color']},1,{t['italic']},0,0,100,100,0,0,{t['border_style']},{t['outline']},{t['shadow']},{sub_align},40,40,{sub_margin},1
 Style: HookText,Arial,{hook_fontsize},&H00000000,&H00000000,&H00FFFFFF,&H00FFFFFF,1,0,0,0,100,100,0,0,3,10,0,8,60,60,{hook_margin},1
 
 [Events]
@@ -157,195 +296,231 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     return header
 
 
-def format_ass_time(seconds: float) -> str:
-    """Format seconds to ASS time format (H:MM:SS.CC)."""
-    h = int(seconds // 3600)
-    m = int((seconds % 3600) // 60)
-    s = seconds % 60
-    cs = int((s % 1) * 100)
-    return f"{h}:{m:02d}:{int(s):02d}.{cs:02d}"
+# ---------------------------------------------------------------------------
+# Hook text generation (top-of-screen attention grabber)
+# ---------------------------------------------------------------------------
 
 
-def generate_hook_text(words: list, clip_start: float,
-                        clip_duration: float,
-                        video_width: int = 1080) -> str:
+def generate_hook_text(
+    words: list,
+    clip_start: float,
+    clip_duration: float,
+    video_width: int = 1080,
+) -> str:
     """
-    Generate engaging on-screen hook text for the first 15 seconds.
-    
-    Creates an attention-grabbing hook by:
-      1. Finding complete sentence fragments (not random word dumps)
-      2. Looking for the first impactful statement
-      3. Capitalizing and formatting for maximum visual impact
-    
-    The hook appears at the configured position with white bg + black text.
-    
-    IMPORTANT: `words` list uses ORIGINAL video timestamps, so we must
-    filter using clip_start to find words that belong to this clip.
+    Create an attention-grabbing hook line for the first ~12 seconds.
+
+    Looks for the first complete sentence in the clip's opening words and
+    formats it as a 1-2 line ALL-CAPS hook with fade in/out.
     """
     if not words:
         return ""
-    
+
     clip_end = clip_start + clip_duration
-    
-    # ★ FIX: Filter words that fall within this clip's first ~12 seconds
-    # using absolute timestamps from the original video
     hook_window_end = clip_start + min(12.0, clip_duration * 0.8)
-    
-    clip_words = [w for w in words 
-                  if w.get('start', 0) >= clip_start - 0.3
-                  and w.get('start', 0) <= hook_window_end
-                  and w.get('end', 0) <= clip_end + 0.5][:25]
-    
+
+    clip_words = [
+        w for w in words
+        if w.get('start', 0) >= clip_start - 0.3
+        and w.get('start', 0) <= hook_window_end
+        and w.get('end', 0) <= clip_end + 0.5
+    ][:25]
+
     if not clip_words or len(clip_words) < 3:
         return ""
-    
-    # Build the full text from clip words
+
     full_text = ' '.join(w['word'].strip() for w in clip_words if w.get('word', '').strip())
-    
     if not full_text or len(full_text) < 5:
         return ""
-    
-    # Strategy: Find the first meaningful sentence/fragment
-    # Split by sentence-ending punctuation
+
     import re
     sentences = re.split(r'[.!?]', full_text)
     sentences = [s.strip() for s in sentences if len(s.strip()) > 8]
-    
+
     if sentences:
-        # Use the first complete sentence (or combine if first is too short)
         hook_text = sentences[0]
         if len(hook_text) < 15 and len(sentences) > 1:
             hook_text = sentences[0] + '. ' + sentences[1]
     else:
-        # No sentence breaks — take first ~10 words
         hook_text = ' '.join(full_text.split()[:10])
-    
-    # Trim to max ~60 chars for readability (about 2 short lines)
+
     words_list = hook_text.split()
     if len(words_list) > 12:
         hook_text = ' '.join(words_list[:12])
-    
-    # Clean up
+
     hook_text = hook_text.strip('.,!?;: ')
-    
-    # Capitalize first letter for impact
     if hook_text:
         hook_text = hook_text[0].upper() + hook_text[1:]
-    
     if not hook_text or len(hook_text) < 5:
         return ""
-    
-    # Add trailing "..." if it's a fragment (not ending with punctuation)
+
     if hook_text[-1] not in '.!?':
         hook_text += '...'
-    
-    # Split into 2 lines for readability (max ~6 words per line)
-    words_list = hook_text.split()
-    if len(words_list) > 5:
-        mid = len(words_list) // 2
-        line1 = ' '.join(words_list[:mid])
-        line2 = ' '.join(words_list[mid:])
-        hook_text = line1 + '\\N' + line2
-    
-    # Hook shows for first 15 seconds (or clip duration if shorter)
+
+    # 2-line wrap
+    wl = hook_text.split()
+    if len(wl) > 5:
+        mid = len(wl) // 2
+        hook_text = ' '.join(wl[:mid]) + '\\N' + ' '.join(wl[mid:])
+
     hook_duration = min(15.0, clip_duration * 0.85)
-    
     start_str = format_ass_time(0.3)
     end_str = format_ass_time(hook_duration)
-    
-    # Fade in 500ms, fade out 800ms
     fade_tag = "{\\fad(500,800)}"
-    
-    line = f"Dialogue: 1,{start_str},{end_str},HookText,,0,0,0,,{fade_tag}{hook_text}\n"
-    
-    return line
+
+    return f"Dialogue: 1,{start_str},{end_str},HookText,,0,0,0,,{fade_tag}{hook_text}\n"
 
 
-def generate_word_by_word_ass(words: list, clip_start: float,
-                               template_name: str = "default",
-                               video_width: int = 1080,
-                               video_height: int = 1920,
-                               words_per_line: int = 4,
-                               highlight_keywords: list = None,
-                               clip_duration: float = 0,
-                               hook_position: str = "upper",
-                               sub_position: str = "bottom") -> str:
+# ---------------------------------------------------------------------------
+# Word-by-word subtitle line generation
+# ---------------------------------------------------------------------------
+
+
+def _escape_text(text: str) -> str:
+    """Escape ASS-special characters in a text token."""
+    return text.replace('\\', '\\\\').replace('{', '\\{').replace('}', '\\}')
+
+
+def _karaoke_line(line_words: list, line_start: float, line_end: float) -> str:
+    """
+    Build a karaoke-style line where each word is animated to highlight color
+    in sync with the spoken timing. Uses \\kf (fill) for per-word fill animation.
+    """
+    parts = []
+    for w in line_words:
+        word_text = _escape_text(w['word'].strip())
+        if not word_text:
+            continue
+        dur_cs = max(1, int(round((w['end'] - w['start']) * 100)))  # centiseconds
+        parts.append(f"{{\\kf{dur_cs}}}{word_text}")
+    text = ' '.join(parts)
+    return f"Dialogue: 0,{format_ass_time(line_start)},{format_ass_time(line_end)},Default,,0,0,0,,{text}\n"
+
+
+def _word_pop_line(
+    line_words: list,
+    line_start: float,
+    line_end: float,
+    clip_start_offset: float,
+    bouncy: bool = False,
+    highlight_color: str | None = None,
+) -> list[str]:
+    """
+    Vizard-style "word pop" — render each word on its own line that gets
+    bolder/larger as the speaker says it.
+
+    Returns a list of Dialogue lines (one per moment in the clip).
+    """
+    if not line_words:
+        return []
+
+    lines: list[str] = []
+    text_tokens = [_escape_text(w['word'].strip()) for w in line_words]
+
+    for i, w in enumerate(line_words):
+        seg_start = max(0.0, w['start'] - clip_start_offset)
+        # End at the next word's start, or 0.3s after this word if it's the last
+        if i + 1 < len(line_words):
+            seg_end = max(seg_start + 0.05, line_words[i + 1]['start'] - clip_start_offset)
+        else:
+            seg_end = max(seg_start + 0.15, w['end'] - clip_start_offset + 0.05)
+
+        if seg_end <= 0 or seg_end < seg_start:
+            continue
+
+        rendered = []
+        for j, token in enumerate(text_tokens):
+            if j == i:
+                # Active word: render in Highlight style + optional scale pop
+                if bouncy:
+                    rendered.append(f"{{\\rHighlight\\fscx115\\fscy115}}{token}{{\\rDefault}}")
+                else:
+                    rendered.append(f"{{\\rHighlight}}{token}{{\\rDefault}}")
+            else:
+                rendered.append(token)
+
+        line_text = ' '.join(rendered)
+        lines.append(
+            f"Dialogue: 0,{format_ass_time(seg_start)},{format_ass_time(seg_end)},"
+            f"Default,,0,0,0,,{line_text}\n"
+        )
+
+    return lines
+
+
+def generate_word_by_word_ass(
+    words: list,
+    clip_start: float,
+    template_name: str = "default",
+    video_width: int = 1080,
+    video_height: int = 1920,
+    words_per_line: int = 4,
+    highlight_keywords: list = None,
+    clip_duration: float = 0,
+    hook_position: str = "upper",
+    sub_position: str = "bottom",
+) -> str:
     """
     Generate ASS subtitle with word-by-word display + hook text.
-    Groups words into lines and shows them with timing.
-    
-    Args:
-        words: List of word dicts with 'word', 'start', 'end' keys
-        clip_start: Start time of the clip in the original video
-        template_name: Subtitle template name
-        video_width: Output video width
-        video_height: Output video height
-        words_per_line: Number of words per subtitle line
-        highlight_keywords: List of keywords to highlight
-        clip_duration: Duration of clip for hook text timing
-        hook_position: Position preset for hook text (top/upper/center/lower/bottom)
-        sub_position: Position preset for subtitles (top/upper/center/lower/bottom)
-    
-    Returns:
-        Complete ASS subtitle file content.
+
+    Template-specific behavior:
+      - karaoke: per-word fill animation via \\kf
+      - bouncy:  per-word size pop on active word
+      - others:  active word renders in Highlight style
     """
-    ass_content = generate_ass_header(template_name, video_width, video_height,
-                                       hook_position, sub_position)
-    
+    t = get_template(template_name)
+    ass_content = generate_ass_header(
+        template_name, video_width, video_height, hook_position, sub_position,
+    )
+
     if not words:
         return ass_content
-    
-    # --- Add hook text at top (first 15 seconds) ---
+
+    # Hook text (first ~12s)
     if clip_duration > 0:
-        hook_lines = generate_hook_text(words, clip_start, clip_duration, video_width)
-        if hook_lines:
-            ass_content += hook_lines
-    
-    highlight_keywords = [k.lower() for k in (highlight_keywords or [])]
-    
-    # Group words into lines
-    lines = []
-    current_line = []
-    
-    for word in words:
-        current_line.append(word)
+        hook_line = generate_hook_text(words, clip_start, clip_duration, video_width)
+        if hook_line:
+            ass_content += hook_line
+
+    # Group words into lines of `words_per_line`
+    lines: list[list] = []
+    current_line: list = []
+    for w in words:
+        current_line.append(w)
         if len(current_line) >= words_per_line:
             lines.append(current_line)
             current_line = []
-    
     if current_line:
         lines.append(current_line)
-    
-    # Generate dialogue events for each line
+
+    is_karaoke = bool(t.get("karaoke"))
+    is_bouncy = bool(t.get("bouncy"))
+
     for line_words in lines:
         if not line_words:
             continue
-        
-        line_start = line_words[0]['start'] - clip_start
-        line_end = line_words[-1]['end'] - clip_start
-        
-        # Skip if timing is negative (before clip start)
-        if line_end < 0:
+
+        line_start = max(0, line_words[0]['start'] - clip_start)
+        line_end = max(0, line_words[-1]['end'] - clip_start)
+        if line_end <= 0 or line_end <= line_start:
             continue
-        line_start = max(0, line_start)
-        
-        # Build text with optional highlighting
-        text_parts = []
-        for w in line_words:
-            word_text = w['word']
-            if highlight_keywords and word_text.lower().strip('.,!?;:') in highlight_keywords:
-                text_parts.append(f"{{\\rHighlight}}{word_text}{{\\rDefault}}")
-            else:
-                text_parts.append(word_text)
-        
-        text = ' '.join(text_parts)
-        text = text.replace('\n', '\\N')
-        
-        start_str = format_ass_time(line_start)
-        end_str = format_ass_time(line_end)
-        
-        ass_content += f"Dialogue: 0,{start_str},{end_str},Default,,0,0,0,,{text}\n"
-    
+
+        if is_karaoke:
+            # Adjust word timings to clip-relative for karaoke
+            adjusted = [
+                {**w, 'start': max(0, w['start'] - clip_start),
+                 'end': max(0, w['end'] - clip_start)}
+                for w in line_words
+            ]
+            ass_content += _karaoke_line(adjusted, line_start, line_end)
+        else:
+            for line in _word_pop_line(
+                line_words, line_start, line_end,
+                clip_start_offset=clip_start,
+                bouncy=is_bouncy,
+            ):
+                ass_content += line
+
     return ass_content
 
 
@@ -353,45 +528,24 @@ def generate_srt(words: list, clip_start: float, words_per_line: int = 6) -> str
     """Generate SRT subtitle format as fallback."""
     if not words:
         return ""
-    
-    lines = []
-    current_line = []
-    
-    for word in words:
-        current_line.append(word)
+
+    lines: list[list] = []
+    current_line: list = []
+    for w in words:
+        current_line.append(w)
         if len(current_line) >= words_per_line:
             lines.append(current_line)
             current_line = []
     if current_line:
         lines.append(current_line)
-    
-    srt_content = ""
+
+    srt = ""
     for i, line_words in enumerate(lines, 1):
         start = max(0, line_words[0]['start'] - clip_start)
         end = max(0, line_words[-1]['end'] - clip_start)
-        
         if end <= 0:
             continue
-        
-        start_str = format_srt_time(start)
-        end_str = format_srt_time(end)
         text = ' '.join(w['word'] for w in line_words)
-        
-        srt_content += f"{i}\n{start_str} --> {end_str}\n{text}\n\n"
-    
-    return srt_content
+        srt += f"{i}\n{format_srt_time(start)} --> {format_srt_time(end)}\n{text}\n\n"
 
-
-def format_srt_time(seconds: float) -> str:
-    """Format seconds to SRT time format."""
-    h = int(seconds // 3600)
-    m = int((seconds % 3600) // 60)
-    s = int(seconds % 60)
-    ms = int((seconds % 1) * 1000)
-    return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
-
-
-def get_template_names() -> list:
-    """Get list of available template names."""
-    return [{"id": k, "name": v["name"]} for k, v in TEMPLATES.items()]
-
+    return srt

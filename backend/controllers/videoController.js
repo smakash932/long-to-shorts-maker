@@ -21,7 +21,10 @@ class VideoController {
      */
     async submitYouTube(req, res) {
         try {
-            const { url, language, ratio, template, clipLength, clipCount, mode, hookPosition, subPosition } = req.body;
+            const {
+                url, language, ratio, template, clipLength, clipCount, mode,
+                hookPosition, subPosition, anticopy, quality, subtitles,
+            } = req.body;
             
             if (!url) {
                 return res.status(400).json({ error: 'YouTube URL is required' });
@@ -79,6 +82,9 @@ class VideoController {
                     mode: mode || 'classic',
                     hookPosition: hookPosition || 'upper',
                     subPosition: subPosition || 'bottom',
+                    anticopy: anticopy || 'medium',
+                    quality: quality || 'balanced',
+                    subtitles: subtitles !== false,
                 });
 
                 const job = this.jobs.get(videoId);
@@ -120,7 +126,10 @@ class VideoController {
                 return res.status(400).json({ error: 'No video file uploaded' });
             }
 
-            const { language, ratio, template, clipLength, clipCount, mode, hookPosition, subPosition } = req.body;
+            const {
+                language, ratio, template, clipLength, clipCount, mode,
+                hookPosition, subPosition, anticopy, quality, subtitles,
+            } = req.body;
             const videoId = uuidv4().split('-')[0] + Date.now().toString(36);
             
             // Move uploaded file to videos directory
@@ -179,6 +188,9 @@ class VideoController {
                     mode: mode || 'classic',
                     hookPosition: hookPosition || 'upper',
                     subPosition: subPosition || 'bottom',
+                    anticopy: anticopy || 'medium',
+                    quality: quality || 'balanced',
+                    subtitles: subtitles !== false,
                 });
 
                 const job = this.jobs.get(videoId);

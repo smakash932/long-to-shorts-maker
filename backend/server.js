@@ -65,19 +65,76 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-// Get subtitle templates
+// Get subtitle templates (now sourced from engine/subtitle_styles.py via
+// a single Python invocation, so the frontend stays in sync with what is
+// actually rendered into clips).
+let TEMPLATE_CACHE = null;
+function loadTemplatesFromEngine() {
+    if (TEMPLATE_CACHE) return TEMPLATE_CACHE;
+    try {
+        const { execFileSync } = require('child_process');
+        const path = require('path');
+        const enginePath = path.join(__dirname, '..', 'engine');
+        // Resolve same Python the bridge uses.
+        const pyCmd = (function () {
+            const fs = require('fs');
+            const candidates = [
+                path.join(__dirname, '..', 'venv', 'Scripts', 'python.exe'),
+                path.join(__dirname, '..', 'venv', 'bin', 'python'),
+            ];
+            for (const c of candidates) if (fs.existsSync(c)) return c;
+            return process.platform === 'win32' ? 'python' : 'python3';
+        })();
+        const out = execFileSync(pyCmd, ['-c',
+            'import sys, os, json; sys.path.insert(0, os.getcwd()); ' +
+            'from subtitle_styles import get_templates_for_preview; ' +
+            'print(json.dumps(get_templates_for_preview()))',
+        ], { cwd: enginePath, encoding: 'utf-8' });
+        TEMPLATE_CACHE = JSON.parse(out);
+        return TEMPLATE_CACHE;
+    } catch (e) {
+        console.error('[server] Failed to load templates from engine:', e.message);
+        return null;
+    }
+}
+
 app.get('/api/templates', (req, res) => {
+    const fromEngine = loadTemplatesFromEngine();
+    if (fromEngine) {
+        // Convert to array form for the frontend
+        const data = Object.entries(fromEngine).map(([id, meta]) => ({
+            id,
+            name: meta.name,
+            description: meta.description,
+            preview: meta.preview,
+        }));
+        return res.json({ success: true, data });
+    }
+    // Fallback (engine not reachable)
     res.json({
-        success: true,
+        success: false,
+        error: 'Could not load templates from engine',
         data: [
             { id: 'default', name: 'Default', description: 'Clean white text with dark outline' },
-            { id: 'modern', name: 'Modern', description: 'Bold text with thick outline' },
-            { id: 'bouncy', name: 'Bouncy', description: 'Impact font with colored outline' },
             { id: 'mrbeast', name: 'Mr.Beast', description: 'Large Impact font, heavy outline' },
-            { id: 'business', name: 'Business', description: 'Clean professional style' },
             { id: 'karaoke', name: 'Karaoke', description: 'Word-by-word highlight effect' },
-        ]
+            { id: 'bouncy', name: 'Bouncy', description: 'Impact font with colored outline' },
+            { id: 'neon', name: 'Neon', description: 'Glowing magenta/cyan look' },
+            { id: 'business', name: 'Business', description: 'Clean professional style' },
+        ],
     });
+});
+
+// System / hardware info (NVENC + CUDA detection)
+let SYSTEM_INFO_CACHE = null;
+app.get('/api/system', async (req, res) => {
+    if (SYSTEM_INFO_CACHE) return res.json({ success: true, data: SYSTEM_INFO_CACHE });
+    try {
+        SYSTEM_INFO_CACHE = await pythonBridge.getSystemInfo();
+        res.json({ success: true, data: SYSTEM_INFO_CACHE });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
 });
 
 // Lifetime stats

@@ -201,7 +201,9 @@ def cmd_pipeline(args):
         video_path, clips, video_id,
         transcription, args.template, args.subtitles,
         hook_position=getattr(args, 'hook_position', 'upper') or 'upper',
-        sub_position=getattr(args, 'sub_position', 'bottom') or 'bottom'
+        sub_position=getattr(args, 'sub_position', 'bottom') or 'bottom',
+        anticopy_strength=getattr(args, 'anticopy', 'medium') or 'medium',
+        quality=getattr(args, 'quality', 'balanced') or 'balanced',
     )
     
     # Step 6: Smart silence removal — tighten clips by removing dead air
@@ -289,6 +291,12 @@ def main():
     pipe_parser.add_argument('--sub-position', default='bottom',
                              choices=['top', 'upper', 'center', 'lower', 'bottom'],
                              help='Position of the subtitles')
+    pipe_parser.add_argument('--anticopy', default='medium',
+                             choices=['off', 'light', 'medium', 'strong'],
+                             help='Anti-copyright filter strength')
+    pipe_parser.add_argument('--quality', default='balanced',
+                             choices=['fast', 'balanced', 'best'],
+                             help='Encoder quality preset (NVENC or x264)')
     
     args = parser.parse_args()
     
