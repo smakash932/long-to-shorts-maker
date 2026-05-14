@@ -23,6 +23,9 @@ export default function App() {
             mode: 'classic',
             hookPosition: 'upper',
             subPosition: 'bottom',
+            anticopy: 'medium',
+            quality: 'balanced',
+            subtitles: true,
         };
         try {
             const saved = localStorage.getItem('shorts_settings');

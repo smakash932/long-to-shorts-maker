@@ -1815,3 +1815,73 @@ h3 { font-size: 1.25rem; }
   color: white;
 }
 
+
+/* === Live Preview (subtitle template demo) === */
+.live-preview-box {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+}
+.live-preview-frame {
+  flex: 0 0 auto;
+}
+.live-preview-bg {
+  position: relative;
+  width: 132px;
+  height: 234px; /* 9:16 */
+  border-radius: 10px;
+  overflow: hidden;
+  background: linear-gradient(160deg, #2c2244 0%, #0c2046 60%, #061227 100%);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+}
+.live-preview-bg-overlay {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse at 30% 35%, rgba(120,80,255,0.20) 0%, transparent 55%),
+    radial-gradient(ellipse at 70% 60%, rgba(0,170,255,0.16) 0%, transparent 55%);
+}
+.preview-hook {
+  position: absolute;
+  left: 6px; right: 6px;
+  text-align: center;
+  font-family: 'Arial Black', Arial, sans-serif;
+  font-weight: 900;
+  font-size: 0.55rem;
+  line-height: 1.15;
+  color: #000;
+  background: rgba(255,255,255,0.92);
+  padding: 4px 6px;
+  border-radius: 4px;
+  white-space: pre-line;
+  letter-spacing: 0.3px;
+}
+.preview-hook-top    { top: 6px; }
+.preview-hook-upper  { top: 22%; transform: translateY(-50%); }
+.preview-hook-lower  { bottom: 22%; transform: translateY(50%); }
+.preview-hook-bottom { bottom: 6px; }
+
+.preview-subs {
+  position: absolute;
+  left: 6px; right: 6px;
+  display: flex; flex-wrap: wrap;
+  justify-content: center;
+  font-size: 0.5rem !important;
+  letter-spacing: 0.1px !important;
+  padding: 2px 6px !important;
+}
+.preview-subs-top    { top: 6px; }
+.preview-subs-upper  { top: 38%; transform: translateY(-50%); }
+.preview-subs-center { top: 50%; transform: translateY(-50%); }
+.preview-subs-lower  { bottom: 22%; transform: translateY(50%); }
+.preview-subs-bottom { bottom: 18px; }
+
+.live-preview-caption {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.85rem;
+}

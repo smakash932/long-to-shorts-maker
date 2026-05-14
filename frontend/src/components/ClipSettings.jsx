@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 const RATIOS = [
     { value: '9:16', label: '9:16 (Shorts)' },
@@ -17,44 +17,15 @@ const CLIP_LENGTHS = [
     { value: '>180', label: '3m+' },
 ];
 
-const TEMPLATES = [
-    {
-        id: 'default', name: 'Default',
-        subtitle: 'Your title',
-        fontStyle: { color: '#fff', textShadow: '1px 1px 2px #000', fontWeight: 700, fontSize: '0.45rem' },
-        bg: 'linear-gradient(135deg, #1a1a2e, #16213e)',
-    },
-    {
-        id: 'modern', name: 'Modern',
-        subtitle: 'SUBTITLE',
-        fontStyle: { color: '#fff', textShadow: '2px 2px 0 #333', fontWeight: 800, fontSize: '0.42rem', letterSpacing: '0.5px' },
-        bg: 'linear-gradient(135deg, #0f0c29, #302b63)',
-    },
-    {
-        id: 'bouncy', name: 'Bouncy',
-        subtitle: 'YOUR TEXT',
-        fontStyle: { color: '#fff', textShadow: '2px 2px 0 #e94560', fontWeight: 900, fontSize: '0.45rem' },
-        bg: 'linear-gradient(135deg, #0f3460, #16213e)',
-    },
-    {
-        id: 'mrbeast', name: 'Mr.Beast',
-        subtitle: 'SUBSCRIBE',
-        fontStyle: { color: '#FFD700', textShadow: '2px 2px 0 #000', fontWeight: 900, fontSize: '0.45rem' },
-        bg: 'linear-gradient(135deg, #1a0a2e, #2d1b69)',
-    },
-    {
-        id: 'business', name: 'Business',
-        subtitle: 'Pro text',
-        fontStyle: { color: '#e0e0e0', fontWeight: 500, fontSize: '0.42rem' },
-        bg: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)',
-    },
-    {
-        id: 'karaoke', name: 'Karaoke',
-        subtitle: 'Word',
-        fontStyle: { color: '#00d4ff', textShadow: '2px 2px 0 #000', fontWeight: 800, fontSize: '0.45rem' },
-        bg: 'linear-gradient(135deg, #1a1a2e, #0d0d30)',
-        highlight: true,
-    },
+// Fallback templates if /api/templates is not reachable (e.g. before server
+// has fully started). These match the keys in engine/subtitle_styles.py.
+const FALLBACK_TEMPLATES = [
+    { id: 'default', name: 'Clean White', description: 'Clean white text with thick black outline.' },
+    { id: 'mrbeast', name: 'Mr.Beast', description: 'Big bold Impact font, yellow word highlight.' },
+    { id: 'karaoke', name: 'Karaoke', description: 'Word-by-word fill animation as you speak.' },
+    { id: 'bouncy', name: 'Bouncy Red', description: 'Bouncy red-outlined text, words pop on cue.' },
+    { id: 'neon', name: 'Neon Glow', description: 'Magenta + cyan glow look, very high contrast.' },
+    { id: 'business', name: 'Business', description: 'Clean professional style on a dark plate.' },
 ];
 
 const LANGUAGES = [
@@ -75,15 +46,142 @@ const LANGUAGES = [
     { value: 'ur', label: '🇵🇰 اردو' },
 ];
 
+const API_BASE = (import.meta?.env?.VITE_API_BASE) || 'http://localhost:3847';
+
+// Build inline CSS for a template chip / preview from the engine's CSS dict.
+function styleFromPreview(preview) {
+    if (!preview) return {};
+    const stroke = preview.stroke;
+    // CSS text-stroke isn't well-supported, fake it with layered text-shadow.
+    const shadow = stroke
+        ? `-2px -2px 0 ${stroke}, 2px -2px 0 ${stroke}, -2px 2px 0 ${stroke}, 2px 2px 0 ${stroke}, 0 0 6px rgba(0,0,0,0.6)`
+        : '2px 2px 4px rgba(0,0,0,0.7)';
+    return {
+        color: preview.color || '#fff',
+        fontFamily: preview.fontFamily || 'Arial Black, Arial, sans-serif',
+        fontWeight: preview.fontWeight || 800,
+        fontSize: preview.fontSize ? `${preview.fontSize}px` : '20px',
+        letterSpacing: preview.letterSpacing || '0.3px',
+        textTransform: preview.textTransform || 'none',
+        textShadow: shadow,
+        lineHeight: 1.15,
+        textAlign: 'center',
+        padding: '4px 10px',
+    };
+}
+
+// Big live preview block — shows what subtitles will look like.
+function LivePreview({ template, hookPosition = 'upper', subPosition = 'bottom' }) {
+    if (!template) return null;
+    const previewStyle = styleFromPreview(template.preview);
+    const highlightColor = template.preview?.highlightColor || '#FFD700';
+    const isUpper = (pos) => pos === 'top' || pos === 'upper';
+    const isLower = (pos) => pos === 'bottom' || pos === 'lower';
+
+    // Demo word stream — visually shows highlight on a single active word.
+    const words = ['This', 'is', 'how', 'your', 'subs', 'will', 'look'];
+    const activeIndex = 3; // "your"
+
+    return (
+        <div className="live-preview-box" id="live-preview">
+            <div className="live-preview-frame">
+                {/* Faux 9:16 video frame */}
+                <div className="live-preview-bg">
+                    <div className="live-preview-bg-overlay" />
+
+                    {/* Hook text at top/upper */}
+                    {isUpper(hookPosition) && (
+                        <div className={`preview-hook preview-hook-${hookPosition}`}>
+                            HOW THIS TOOL WILL{'\n'}10X YOUR REACH
+                        </div>
+                    )}
+                    {isLower(hookPosition) && (
+                        <div className={`preview-hook preview-hook-${hookPosition}`}>
+                            HOW THIS TOOL WILL{'\n'}10X YOUR REACH
+                        </div>
+                    )}
+
+                    {/* Subtitles */}
+                    <div className={`preview-subs preview-subs-${subPosition}`} style={previewStyle}>
+                        {words.map((w, i) => (
+                            <span key={i} style={{
+                                color: i === activeIndex ? highlightColor : previewStyle.color,
+                                marginRight: '6px',
+                                transform: i === activeIndex && template.id === 'bouncy' ? 'scale(1.15)' : 'none',
+                                display: 'inline-block',
+                                transition: 'transform 0.2s',
+                            }}>{w}</span>
+                        ))}
+                    </div>
+                </div>
+            </div>
+            <div className="live-preview-caption">
+                <strong style={{ color: '#fff' }}>{template.name}</strong>
+                <span style={{ color: '#aaa', marginLeft: 8, fontSize: '0.78rem' }}>
+                    {template.description}
+                </span>
+            </div>
+        </div>
+    );
+}
+
 export default function ClipSettings({ settings, onSettingsChange, disabled }) {
+    const [templates, setTemplates] = useState(FALLBACK_TEMPLATES);
+    const [templatesLoaded, setTemplatesLoaded] = useState(false);
+    const [sysInfo, setSysInfo] = useState(null);
+
+    useEffect(() => {
+        let alive = true;
+        fetch(`${API_BASE}/api/templates`)
+            .then(r => r.json())
+            .then(j => {
+                if (!alive) return;
+                if (j?.data?.length) {
+                    setTemplates(j.data);
+                    setTemplatesLoaded(true);
+                }
+            })
+            .catch(() => { /* keep fallback */ });
+
+        fetch(`${API_BASE}/api/system`)
+            .then(r => r.json())
+            .then(j => { if (alive && j?.data) setSysInfo(j.data); })
+            .catch(() => { });
+        return () => { alive = false; };
+    }, []);
+
     const updateSetting = (key, value) => {
         onSettingsChange({ ...settings, [key]: value });
     };
+
+    const selectedTemplate = templates.find(t => t.id === (settings.template || 'default')) || templates[0];
+
+    // Hardware badge text
+    let gpuBadge = null;
+    if (sysInfo) {
+        if (sysInfo?.nvenc?.available) {
+            gpuBadge = `GPU encode: ${sysInfo?.nvidia?.name || 'NVIDIA'} (NVENC on)`;
+        } else if (sysInfo?.nvidia?.available) {
+            gpuBadge = `GPU detected: ${sysInfo.nvidia.name} — NVENC unavailable`;
+        } else {
+            gpuBadge = 'CPU encode (no NVIDIA GPU detected)';
+        }
+    }
 
     return (
         <div className="settings-panel glass-card" style={{ padding: '12px 16px' }}>
             <h3 style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem' }}>
                 <span>⚙️</span> Clip Settings
+                {gpuBadge && (
+                    <span title="Hardware detection from engine"
+                          style={{
+                              marginLeft: 'auto', fontSize: '0.72rem', color: '#bbb',
+                              padding: '3px 8px', background: 'rgba(255,255,255,0.06)',
+                              borderRadius: 6, fontWeight: 500,
+                          }}>
+                        🖥️ {gpuBadge}
+                    </span>
+                )}
             </h3>
 
             {/* Row 1: Core settings — 6 columns compact */}
@@ -141,7 +239,7 @@ export default function ClipSettings({ settings, onSettingsChange, disabled }) {
                 </div>
             </div>
 
-            {/* Row 2: Inline toggles — compact */}
+            {/* Row 2: Mode + Title + Anti-copyright + Quality */}
             <div style={{ display: 'flex', gap: '12px', marginTop: '8px', flexWrap: 'wrap' }}>
                 <div style={{ flex: '1', minWidth: '180px' }}>
                     <label className="setting-label-sm" style={{ marginBottom: '3px', display: 'block' }}>Mode</label>
@@ -151,7 +249,7 @@ export default function ClipSettings({ settings, onSettingsChange, disabled }) {
                             title="Fast center crop, no face detection">⚡ Classic</button>
                         <button className={`toggle-btn ${settings.mode === 'advanced' ? 'active' : ''}`}
                             onClick={() => !disabled && updateSetting('mode', 'advanced')} disabled={disabled} id="mode-advanced"
-                            title="Face detection + split-screen">🎯 Advanced</button>
+                            title="Face detection + smooth tracking">🎯 Advanced</button>
                     </div>
                 </div>
                 <div style={{ flex: '1', minWidth: '180px' }}>
@@ -165,33 +263,86 @@ export default function ClipSettings({ settings, onSettingsChange, disabled }) {
                             title="Clean title, no tags">📝 Plain</button>
                     </div>
                 </div>
-                {/* Subtitle style inline */}
-                <div style={{ flex: '2', minWidth: '300px' }}>
-                    <label className="setting-label-sm" style={{ marginBottom: '3px', display: 'block' }}>Subtitle Style</label>
-                    <div className="template-strip">
-                        {TEMPLATES.map(t => (
+                <div style={{ flex: '1', minWidth: '200px' }}>
+                    <label className="setting-label-sm" style={{ marginBottom: '3px', display: 'block' }}
+                           title="Slightly modifies each clip to avoid duplicate-detection (rotation, color, audio pitch).">
+                        🛡 Anti-Copyright
+                    </label>
+                    <div className="toggle-row">
+                        {['off', 'light', 'medium', 'strong'].map(s => (
+                            <button key={s}
+                                className={`toggle-btn ${(settings.anticopy || 'medium') === s ? 'active' : ''}`}
+                                onClick={() => !disabled && updateSetting('anticopy', s)} disabled={disabled}
+                                id={`anticopy-${s}`}
+                                style={{ flex: 1, fontSize: '0.75rem' }}>
+                                {s[0].toUpperCase() + s.slice(1)}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+                <div style={{ flex: '1', minWidth: '180px' }}>
+                    <label className="setting-label-sm" style={{ marginBottom: '3px', display: 'block' }}
+                           title="Encoder preset. Fast = lowest quality/highest speed.">
+                        🎞 Quality
+                    </label>
+                    <div className="toggle-row">
+                        {['fast', 'balanced', 'best'].map(q => (
+                            <button key={q}
+                                className={`toggle-btn ${(settings.quality || 'balanced') === q ? 'active' : ''}`}
+                                onClick={() => !disabled && updateSetting('quality', q)} disabled={disabled}
+                                id={`quality-${q}`}
+                                style={{ flex: 1, fontSize: '0.75rem' }}>
+                                {q[0].toUpperCase() + q.slice(1)}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Row 3: Subtitle template strip — chips load from /api/templates */}
+            <div style={{ marginTop: '12px' }}>
+                <label className="setting-label-sm" style={{ marginBottom: '4px', display: 'block' }}>
+                    Subtitle Style {templatesLoaded ? '' : ' (loading…)'}
+                </label>
+                <div className="template-strip">
+                    {templates.map(t => {
+                        const chipStyle = t.preview ? styleFromPreview(t.preview) : {
+                            color: '#fff', fontWeight: 700, fontSize: '14px',
+                            textShadow: '2px 2px 0 #000',
+                        };
+                        const sample = t.id === 'mrbeast' ? 'SUBSCRIBE'
+                            : t.id === 'karaoke' ? 'Karaoke'
+                            : t.id === 'bouncy' ? 'BOUNCE'
+                            : t.id === 'neon' ? 'NEON'
+                            : t.id === 'business' ? 'Business'
+                            : 'Subtitle';
+                        return (
                             <div key={t.id}
                                 className={`template-chip ${settings.template === t.id ? 'selected' : ''}`}
                                 onClick={() => !disabled && updateSetting('template', t.id)}
-                                title={`${t.name}: ${t.subtitle}`}
+                                title={`${t.name}: ${t.description || ''}`}
                                 style={{ opacity: disabled ? 0.5 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}>
-                                <div className="template-chip-preview" style={{ background: t.bg }}>
-                                    <span style={{
-                                        ...t.fontStyle,
-                                        fontSize: '0.55rem',
-                                        textAlign: 'center',
-                                        lineHeight: 1.2,
-                                        padding: '2px 4px',
-                                        wordBreak: 'break-word',
-                                    }}>
-                                        {t.highlight ? (<><span style={{ color: '#FFD700' }}>Hi</span> text</>) : t.subtitle}
+                                <div className="template-chip-preview" style={{
+                                    background: 'linear-gradient(135deg, #1a1a2e, #16213e)'
+                                }}>
+                                    <span style={{ ...chipStyle, fontSize: '0.6rem', lineHeight: 1.2 }}>
+                                        {sample}
                                     </span>
                                 </div>
                                 <span className="template-chip-name">{t.name}</span>
                             </div>
-                        ))}
-                    </div>
+                        );
+                    })}
                 </div>
+            </div>
+
+            {/* Row 4: Live preview block */}
+            <div style={{ marginTop: '12px' }}>
+                <LivePreview
+                    template={selectedTemplate}
+                    hookPosition={settings.hookPosition || 'upper'}
+                    subPosition={settings.subPosition || 'bottom'}
+                />
             </div>
         </div>
     );
