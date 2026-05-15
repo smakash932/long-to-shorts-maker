@@ -23,7 +23,7 @@ class VideoController {
         try {
             const {
                 url, language, ratio, template, clipLength, clipCount, mode,
-                hookPosition, subPosition, anticopy, quality, subtitles,
+                hookPosition, subPosition, anticopy, quality, subtitles, useGpu,
             } = req.body;
             
             if (!url) {
@@ -85,6 +85,7 @@ class VideoController {
                     anticopy: anticopy || 'medium',
                     quality: quality || 'balanced',
                     subtitles: subtitles !== false,
+                    useGpu: useGpu === undefined ? true : (useGpu === true || useGpu === 'true' || useGpu === 1 || useGpu === '1'),
                 });
 
                 const job = this.jobs.get(videoId);
@@ -128,7 +129,7 @@ class VideoController {
 
             const {
                 language, ratio, template, clipLength, clipCount, mode,
-                hookPosition, subPosition, anticopy, quality, subtitles,
+                hookPosition, subPosition, anticopy, quality, subtitles, useGpu,
             } = req.body;
             const videoId = uuidv4().split('-')[0] + Date.now().toString(36);
             
@@ -191,6 +192,7 @@ class VideoController {
                     anticopy: anticopy || 'medium',
                     quality: quality || 'balanced',
                     subtitles: subtitles !== false,
+                    useGpu: useGpu === undefined ? true : (useGpu === true || useGpu === 'true' || useGpu === 1 || useGpu === '1'),
                 });
 
                 const job = this.jobs.get(videoId);

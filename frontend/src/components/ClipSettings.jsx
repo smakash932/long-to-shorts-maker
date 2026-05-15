@@ -156,15 +156,25 @@ export default function ClipSettings({ settings, onSettingsChange, disabled }) {
 
     const selectedTemplate = templates.find(t => t.id === (settings.template || 'default')) || templates[0];
 
-    // Hardware badge text
+    // Has user toggled GPU off?
+    const userWantsGpu = settings.useGpu !== false;   // default true
+    const hwHasNvenc = !!sysInfo?.nvenc?.available;
+    const hwHasGpu = !!sysInfo?.nvidia?.available;
+
+    // Hardware badge text — combines hardware detection AND the user's toggle.
     let gpuBadge = null;
     if (sysInfo) {
-        if (sysInfo?.nvenc?.available) {
-            gpuBadge = `GPU encode: ${sysInfo?.nvidia?.name || 'NVIDIA'} (NVENC on)`;
-        } else if (sysInfo?.nvidia?.available) {
-            gpuBadge = `GPU detected: ${sysInfo.nvidia.name} — NVENC unavailable`;
+        if (!userWantsGpu) {
+            // User explicitly forced CPU
+            gpuBadge = hwHasGpu
+                ? `CPU mode (GPU available but turned off)`
+                : `CPU mode (no NVIDIA GPU)`;
+        } else if (hwHasNvenc) {
+            gpuBadge = `GPU: ${sysInfo?.nvidia?.name || 'NVIDIA'} (NVENC on)`;
+        } else if (hwHasGpu) {
+            gpuBadge = `GPU: ${sysInfo.nvidia.name} — NVENC unavailable, CPU fallback`;
         } else {
-            gpuBadge = 'CPU encode (no NVIDIA GPU detected)';
+            gpuBadge = 'CPU only (no NVIDIA GPU detected)';
         }
     }
 
@@ -250,6 +260,24 @@ export default function ClipSettings({ settings, onSettingsChange, disabled }) {
                         <button className={`toggle-btn ${settings.mode === 'advanced' ? 'active' : ''}`}
                             onClick={() => !disabled && updateSetting('mode', 'advanced')} disabled={disabled} id="mode-advanced"
                             title="Face detection + smooth tracking">🎯 Advanced</button>
+                    </div>
+                </div>
+                <div style={{ flex: '1', minWidth: '180px' }}>
+                    <label className="setting-label-sm" style={{ marginBottom: '3px', display: 'block' }}
+                           title="Use NVIDIA GPU (CUDA + NVENC) for fast transcription and encoding. Turn off on PCs without an NVIDIA GPU so everything runs on CPU.">
+                        🚀 GPU Accelerate
+                    </label>
+                    <div className="toggle-row">
+                        <button className={`toggle-btn ${userWantsGpu ? 'active' : ''}`}
+                            onClick={() => !disabled && updateSetting('useGpu', true)} disabled={disabled} id="gpu-on"
+                            title="Use NVIDIA GPU if present (CUDA + NVENC). Auto-falls back to CPU if no GPU.">
+                            🚀 GPU On
+                        </button>
+                        <button className={`toggle-btn ${!userWantsGpu ? 'active' : ''}`}
+                            onClick={() => !disabled && updateSetting('useGpu', false)} disabled={disabled} id="gpu-off"
+                            title="Force CPU mode. Use this on PCs without an NVIDIA GPU (e.g. for students/clients).">
+                            🐢 CPU Only
+                        </button>
                     </div>
                 </div>
                 <div style={{ flex: '1', minWidth: '180px' }}>

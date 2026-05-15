@@ -45,7 +45,7 @@ class PythonBridge extends EventEmitter {
      * @param {string} jobId - Unique job identifier
      * @returns {Promise<Object>} - Result data from Python
      */
-    runCommand(command, args = [], jobId = null) {
+    runCommand(command, args = [], jobId = null, extraEnv = {}) {
         return new Promise((resolve, reject) => {
             const fullArgs = [
                 path.join(ENGINE_DIR, 'main.py'),
@@ -53,11 +53,12 @@ class PythonBridge extends EventEmitter {
                 ...args
             ];
 
-            console.log(`[PythonBridge] Running: ${PYTHON_CMD} ${fullArgs.join(' ')}`);
+            console.log(`[PythonBridge] Running: ${PYTHON_CMD} ${fullArgs.join(' ')}` +
+                (Object.keys(extraEnv).length ? ` (env override: ${JSON.stringify(extraEnv)})` : ''));
 
             const proc = spawn(PYTHON_CMD, fullArgs, {
                 cwd: ENGINE_DIR,
-                env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+                env: { ...process.env, PYTHONIOENCODING: 'utf-8', ...extraEnv },
             });
 
             if (jobId) {
@@ -175,7 +176,15 @@ class PythonBridge extends EventEmitter {
         // Skip subtitles entirely if user explicitly disabled them
         if (options.subtitles === false) args.push('--subtitles', 'false');
 
-        return this.runCommand('pipeline', args, options.videoId || 'pipeline');
+        // GPU/CPU mode toggle from the UI. When the user has flipped "GPU
+        // Accelerate" off we hard-force CPU mode via env var (the engine's
+        // gpu_utils.py honors LTS_FORCE_CPU=1 and skips all CUDA / NVENC).
+        const extraEnv = {};
+        if (options.useGpu === false) {
+            extraEnv.LTS_FORCE_CPU = '1';
+        }
+
+        return this.runCommand('pipeline', args, options.videoId || 'pipeline', extraEnv);
     }
 
     /**

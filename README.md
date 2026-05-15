@@ -6,19 +6,35 @@ GPU acceleration (CUDA + NVENC) is auto-detected for NVIDIA cards; everything al
 
 ---
 
-## One-click run on Windows
+## Easy setup on Windows (two files, two clicks)
 
-1. **Download the repo** — green `Code` button → `Download ZIP`. Extract anywhere.
-2. **Install three system tools first** (these only need to be installed once on your PC):
-   - Python 3.10+: https://www.python.org/downloads/ — tick **"Add python.exe to PATH"** during install.
-   - Node.js 18+: https://nodejs.org/en/download
-   - FFmpeg: https://www.gyan.dev/ffmpeg/builds/ — download the "release essentials" zip, extract, and add the `bin` folder to your `PATH`.
-3. **Double-click `START.bat`.**
-   - The first time you run it, it will create a Python venv, install all Python + Node packages (a few minutes), then start both servers.
-   - Subsequent runs skip the install step and start in a few seconds.
-   - Your browser will open `http://localhost:5187` automatically.
+1. **Download the repo** — green `Code` button → `Download ZIP`. Extract anywhere on your PC.
 
-If anything is missing, `START.bat` will tell you exactly what to install.
+2. **Install three system tools once** (these only need to be installed once per PC, not per project):
+   - **Python 3.10+:** https://www.python.org/downloads/ — tick **"Add python.exe to PATH"** during install.
+   - **Node.js 18+:** https://nodejs.org/en/download
+   - **FFmpeg:** https://www.gyan.dev/ffmpeg/builds/ — download the **"release essentials"** zip, extract it, and add the `bin` folder to your `PATH`.
+
+3. **Double-click `SETUP.bat`** — one-time setup (only needed once per PC).
+   - Checks Python / Node / FFmpeg are on PATH.
+   - Creates the Python venv if it doesn't exist.
+   - Installs Python + Node packages (skips anything already installed).
+   - Prints a clear `[DONE] All requirements installed!` message at the end.
+   - You can run it again any time — already-installed parts are skipped.
+
+4. **Double-click `START.bat`** to launch the tool.
+   - No install step here — just starts the backend + frontend and opens your browser at `http://localhost:5187`.
+   - This is the file you'll use every day.
+   - If you accidentally run it before `SETUP.bat`, it will tell you to run setup first.
+
+### GPU vs CPU mode
+
+Inside the UI, in the **Clip Settings** panel, there's a toggle:
+
+- **🚀 GPU On** — uses your NVIDIA GPU (CUDA for transcription + NVENC for video encoding). Auto-falls back to CPU if no GPU is detected.
+- **🐢 CPU Only** — forces CPU mode everywhere. Useful when you share the tool with students or clients whose PCs don't have an NVIDIA GPU.
+
+The hardware badge in the top right of Clip Settings shows what's actually being used at any moment.
 
 ---
 
