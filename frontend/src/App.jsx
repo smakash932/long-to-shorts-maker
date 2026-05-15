@@ -26,6 +26,8 @@ export default function App() {
             anticopy: 'medium',
             quality: 'balanced',
             subtitles: true,
+            useGpu: true,   // GPU Accelerate toggle. true = use NVIDIA GPU if present;
+                            // false = force CPU mode (for PCs without an NVIDIA GPU)
         };
         try {
             const saved = localStorage.getItem('shorts_settings');
