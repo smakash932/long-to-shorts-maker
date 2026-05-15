@@ -117,13 +117,13 @@ TEMPLATES = {
         "outline": 5,
         "shadow": 2,
         "margin_v": 150,
-        "highlight_color": "&H0000FF00",   # Green word highlight
+        "highlight_color": "&H001144FF",   # Red/orange word highlight (BGR: FF4411)
         "bouncy": True,                    # Use bounce animation
         "preview": {
             "color": "#FFFFFF",
             "stroke": "#FF0000",
             "background": "transparent",
-            "highlightColor": "#00FF00",
+            "highlightColor": "#FF4411",
             "fontWeight": 900,
             "fontFamily": "Impact, 'Arial Black', sans-serif",
             "fontSize": 30,
